@@ -249,7 +249,6 @@ class AppControleGastos:
         self.texto_relatorio.config(state="disabled")
 
     def limpar_dados(self):
-        # Aqui sim mantemos um Pop-up, por ser uma ação destrutiva!
         resposta = messagebox.askyesno("Apagar Tudo", "Tem certeza que deseja APAGAR TODOS OS DADOS do aplicativo? Isso não pode ser desfeito.")
         if resposta:
             self.cursor.execute("DELETE FROM gastos")
