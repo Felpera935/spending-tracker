@@ -1,0 +1,47 @@
+# Gera o controlador.exe num Windows do GitHub sempre que o código muda.
+# - Em pull requests: o .exe fica disponível como "artifact" da execução, para testar.
+# - No main: o .exe é publicado na página de Releases. O link abaixo sempre baixa a versão mais nova:
+#   https://github.com/Felpera935/spending-tracker/releases/latest/download/controlador.exe
+name: Gerar .exe
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar PyInstaller
+        run: pip install pyinstaller
+
+      - name: Gerar controlador.exe
+        run: pyinstaller controlador.spec --noconfirm
+
+      - name: Guardar o .exe nesta execução
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlador-exe
+          path: dist/controlador.exe
+
+      - name: Publicar na página de Releases
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "v${{ github.run_number }}" dist/controlador.exe \
+            --title "Controle Financeiro v${{ github.run_number }}" \
+            --notes "Gerado automaticamente a partir do commit ${GITHUB_SHA::7}." \
+            --latest
