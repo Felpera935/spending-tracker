@@ -1,0 +1,10 @@
+# Gerados pelo PyInstaller. O .exe é publicado automaticamente na página de Releases.
+build/
+dist/
+
+# Seus dados financeiros: ficam só no seu computador, nunca no GitHub
+dados_financeiros.db
+
+# Python
+__pycache__/
+*.pyc

@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 import math
+import os
+import sys
 from datetime import datetime
 
 CATEGORIAS = [
@@ -21,6 +23,19 @@ COR_FUNDO_GRAFICO = "#ffffff"
 COR_TEXTO = "#0b0b0b"
 COR_TEXTO_SUAVE = "#52514e"
 CORES_COM_TEXTO_ESCURO = {"#eda100", "#e87ba4", COR_DEMAIS}  # fatias claras pedem texto escuro
+
+
+def caminho_banco():
+    """O banco fica sempre na mesma pasta do programa (.exe ou .py).
+
+    Antes ele era criado na pasta "atual", então abrir o app por um atalho ou de
+    outra pasta criava um banco novo e vazio, e os dados pareciam ter sumido.
+    """
+    if getattr(sys, "frozen", False):  # rodando como .exe gerado pelo PyInstaller
+        pasta = os.path.dirname(sys.executable)
+    else:
+        pasta = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(pasta, "dados_financeiros.db")
 
 
 def normalizar_mes(texto):
@@ -71,7 +86,8 @@ class AppControleGastos:
         self.atualizar_resumo()
 
     def conectar_db(self):
-        self.conn = sqlite3.connect("dados_financeiros.db")
+        self.caminho_db = caminho_banco()
+        self.conn = sqlite3.connect(self.caminho_db)
         self.cursor = self.conn.cursor()
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS gastos 
                             (id INTEGER PRIMARY KEY, mes_ano TEXT, categoria TEXT, valor REAL)''')
@@ -201,6 +217,16 @@ class AppControleGastos:
         
         btn_apagar = tk.Button(aba_config, text="LIMPAR TODOS OS DADOS", bg="red", fg="white", command=self.limpar_dados)
         btn_apagar.pack(pady=20)
+
+        # Mostra onde os dados estão, para fazer backup ou levar para outra versão do app
+        ttk.Label(aba_config, text="Seus dados ficam neste arquivo:", font=("", 10, "bold")).pack(pady=(30, 2))
+        campo_caminho = ttk.Entry(aba_config, width=80)
+        campo_caminho.insert(0, self.caminho_db)
+        campo_caminho.config(state="readonly")
+        campo_caminho.pack(padx=10)
+        ttk.Label(aba_config, text="Ao baixar uma versão nova do programa, coloque o .exe novo nesta mesma pasta\n"
+                                   "(ou copie este arquivo para a pasta do .exe novo) para manter seus dados.",
+                  justify=tk.CENTER, foreground=COR_TEXTO_SUAVE).pack(pady=5)
 
     # =============== FUNÇÕES ===============
     
@@ -332,18 +358,27 @@ class AppControleGastos:
         gasto_total = sum(valor for _, valor in gastos_por_categoria)
 
         texto = f"--- RELATÓRIO DE {mes} ---\n"
-        texto += f"Renda do Mês: R$ {renda:.2f}\n"
-        texto += f"Gasto Total: R$ {gasto_total:.2f}\n"
-        texto += f"Saldo Restante: R$ {renda - gasto_total:.2f}\n\n"
+        if renda > 0:
+            texto += f"Renda do Mês: R$ {renda:.2f}\n"
+            texto += f"Gasto Total: R$ {gasto_total:.2f}\n"
+            texto += f"Saldo Restante: R$ {renda - gasto_total:.2f}\n\n"
+        else:
+            # Sem renda cadastrada, "0% da renda" e saldo negativo só confundem
+            texto += f"Renda do Mês: não cadastrada para {mes}\n"
+            texto += "(cadastre na aba Renda do Mês para ver o saldo)\n"
+            texto += f"Gasto Total: R$ {gasto_total:.2f}\n\n"
         texto += "--- DETALHAMENTO POR SEGMENTO ---\n"
 
         if gastos_por_categoria:
             for cat, valor in gastos_por_categoria:
                 pct_gasto = (valor / gasto_total) * 100 if gasto_total > 0 else 0
-                pct_salario = (valor / renda) * 100 if renda > 0 else 0
-                
+
                 texto += f"• {cat}: R$ {valor:.2f}\n"
-                texto += f"  (Representa {pct_gasto:.1f}% dos gastos e {pct_salario:.1f}% da renda)\n"
+                if renda > 0:
+                    pct_salario = (valor / renda) * 100
+                    texto += f"  (Representa {pct_gasto:.1f}% dos gastos e {pct_salario:.1f}% da renda)\n"
+                else:
+                    texto += f"  (Representa {pct_gasto:.1f}% dos gastos)\n"
         else:
             texto += "Nenhum gasto registrado neste mês."
 
